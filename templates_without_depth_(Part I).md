@@ -108,7 +108,7 @@ possible to compute `sum<10000>::value` with an instantiation depth of 15 .
 With a perfect `make_index_sequence` it [works with an instantiation depth of 4](http://coliru.stacked-crooked.com/a/0656d99b10153515). 
 
 Now the question is wether there are other (more important) metafunctions
-which can take advantage from memoization, have a known reucusion depth
+which can take advantage from memoization, have a known recursion depth
 and can be used iteratively with an index sequence. And indeed we can
 implement indexed access and fold this way.
 
@@ -164,6 +164,7 @@ following metafunctions and implement type_at_t in terms of them ([full implemen
 * `head` (trivial therefor not shown here)
 * `tail` (trivial)
 * `remove_first_n`
+
 
 
     template<class Sequence, size_t N>
