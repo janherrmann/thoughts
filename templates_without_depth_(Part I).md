@@ -8,6 +8,7 @@ Copyright Jan Herrmann, 2017
 
 Look at the following simple example on doing template metaprogramming:
 
+```cpp
     template <size_t N>
     struct sum
     {
@@ -18,24 +19,29 @@ Look at the following simple example on doing template metaprogramming:
     {
         static const size_t value 0;
     };
+```
 
 This toy example implements a compile time function which calculates the sum
 of all positive numbers from 0 to n. But when we try to do this calculation
 with n=1000
 
+```cpp
     int main() {
         cout << sum<1000>::value << endl;
     }
+```
 
 the compiler will probably complain about reaching the
 [instantiation depth](http://coliru.stacked-crooked.com/a/56cebb10f60d1661).
 The solution is not to increase the maximum but a simple 
 [static assert](http://coliru.stacked-crooked.com/a/96af026bddaf9315):
 
+```cpp
     int main() {
         static_assert(sum<500>::value!=0, "");
         cout << sum<1000>::value << endl;
     }
+```
 
 Now the question is why this assert solves our problem. The simple answer is
 memoization. The static_assert forces the compiler to instantiate sum<500>,
@@ -58,6 +64,7 @@ order of template instantiations with the aim of reducing instantiation depth:
 Now our example gets a little bit more lengthy. First we rename `sum` to
 `sum_impl`:
 
+```cpp
     template <size_t N>
     struct sum_impl
     {
@@ -68,9 +75,11 @@ Now our example gets a little bit more lengthy. First we rename `sum` to
     {
         static const size_t value=0;
     };
+```
 
 As a second step we create a maping from an index sequence to our `sum_impl`:
 
+```cpp
     template<class Sequence>
     struct sum_map;
 
@@ -79,6 +88,7 @@ As a second step we create a maping from an index sequence to our `sum_impl`:
     {
         using type = index_sequence<sum_impl<Ints>::value...>;
     };
+```
 
 With this map we can create all sums from 0 to n with
 `using result = sum_map<make_index_sequence<n+1>>>`.
@@ -88,11 +98,13 @@ As a third step we need to get the last element out of this
 a diffrent kind of sequence e.g. a type sequence. But an easy solution
 can be implemented for an 2 element argument pack:
 
+```cpp
     template<class, class Second>
     struct second
     {
         using type=Second;
     };
+```
 
 The idea behind this is to pass the `sum_map` as the first argument and 
 the `sum_impl` we are interested in as the second argument. Arguments are
@@ -100,8 +112,10 @@ instantiated from left to right, first we create all `sum_impl` elements
 we need inside of `sum_map` and as a second step we lookup the `sum_impl` 
 we are interested in:
 
+```cpp
     template<size_t N>
     using sum = typename second<typename sum_map<make_index_sequence<N>>::type,sum_impl<N>>::type;
+```
 
 As we can [see](http://coliru.stacked-crooked.com/a/a6bddf19506dbdaa) it is 
 possible to compute `sum<10000>::value` with an instantiation depth of 15 . 
@@ -117,6 +131,7 @@ implement indexed access and fold this way.
 Indexed access for type lists has been implemented by Andrei Alexandrescu in
 Modern C++ Design. He has implemented TypeAt the following way:
 
+```cpp
     template <class TList, unsigned int index> struct TypeAt;
 
     template <class Head, class Tail>
@@ -130,9 +145,11 @@ Modern C++ Design. He has implemented TypeAt the following way:
     {
         typedef typename TypeAt<Tail, i - 1>::Result Result;
     };
+```
 
 With C++11 and variadic templates it [becomes](http://coliru.stacked-crooked.com/a/72f403953dd30231):
 
+```cpp
     template<class... T>
     struct type_sequence
     {};
@@ -154,6 +171,7 @@ With C++11 and variadic templates it [becomes](http://coliru.stacked-crooked.com
 
     template<class TypeSequence, size_t Index>
     using type_at_t = typename type_at<TypeSequence, Index>::type;
+```
 
 You can find lots of implementations of this algorithm
 (for example [from Peter Dimov](http://pdimov.com/cpp2/simple_cxx11_metaprogramming_2.html))
@@ -180,13 +198,13 @@ following metafunctions and implement type_at_t in terms of them ([full implemen
     };
 
     template<class Sequence, size_t Index>
-    using type_at_t = typename head<typename remove_first_n<Sequence, Index>::type>::type;
-    
+    using type_at_t = typename head<typename remove_first_n<Sequence, Index>::type>::type;  
 ```
 
 As we see the structure of the algorithm has been moved to `remove_first_n`.
 Now we access all elements of a sequence (highly simplified):
 
+```
     remove_first_n<type_sequence<int,float,double>,0>::type         :=
         type_sequence<int,float,double>
 
@@ -204,6 +222,7 @@ Now we access all elements of a sequence (highly simplified):
             tail<type_sequence<float,double>>::type,0>::type        :=
         remove_first_n<type_sequence<double>,0>::type               :=
         type_sequence<double>
+```
 
 We have 6 instantiations of remove_first_n. With a [slightly
 modified source](http://coliru.stacked-crooked.com/a/dd9bfd7623350d79)
@@ -217,6 +236,7 @@ which means *remove n-1 elements and then one element*. This looks
 like its not important but [with the modified source](http://coliru.stacked-crooked.com/a/e0d58463b9e38229)
 we have have only 3 errors wich means 3 instantiation (of `remove_first_n`):
 
+```
     remove_first_n<type_sequence<int,float,double>,0>::type             :=
         type_sequence<int,float,double>
 
@@ -229,6 +249,7 @@ we have have only 3 errors wich means 3 instantiation (of `remove_first_n`):
         tail<remove_first_n<type_sequence<int,float,double>,1>::type>   :=
         tail<type_sequence<float,double>> :=
         type_sequence<float,double>
+```
 
 For every instantiation we lookup a previously computed one
 and reduce the amount of computation. Now implementing
@@ -241,7 +262,7 @@ consequently in template metaprogramming. As long as we know
 which size our type sequence has, we know how many fold operations
 we need. Furthermore we know in which order they have to be computed.
 The simple formula is:
-
+```
     fold(Sequence, State, Operation, Index) =
         Operation(
             fold(Sequence, State, Operation, Index-1),
@@ -249,9 +270,9 @@ The simple formula is:
         )
     fold(Sequence, State, Operation, 0) =
         Operation(State,type_at(Sequence, 0))
-
+```
 So we can implement fold the following way:
-
+```cpp
     template<
         class Sequence,
         class State,
@@ -264,9 +285,9 @@ So we can implement fold the following way:
             typename type_at<Sequence, Index>::type
         >::type;
     };
-
+```
 and for the recursion base case:
-
+```cpp
     template<
         class Sequence,
         class State,
@@ -279,9 +300,9 @@ and for the recursion base case:
             typename type_at<Sequence, 0>::type
         >::type;
     };
-
+```
 Like with `sum` we need a maping for fold:
-
+```cpp
     template<
         class Sequence, 
         class State, 
@@ -300,9 +321,10 @@ Like with `sum` we need a maping for fold:
     {
         using type = type_sequence<typename fold_impl<Sequence, State, Operation, Ints>::type ...>;
     };
-
+```
 and with an additional `sequence_size` metafunction we can create our fold:
 
+```cpp
     template <
         class Sequence,
         class State,
@@ -317,9 +339,9 @@ and with an additional `sequence_size` metafunction we can create our fold:
         >::type,
         typename fold_impl<Sequence, State, Operation, sequence_size<Sequence>::type::value-1>::type
     >::type;
-
-The [example](http://coliru.stacked-crooked.com/a/85800da881a6ba06) works with
-an instantiation depth of 6. With larger type_sequences `std::make_index_sequence`
+```
+The [example (folding a 21 element sequence)](http://coliru.stacked-crooked.com/a/85800da881a6ba06) 
+works with an instantiation depth of 6. With larger type_sequences `std::make_index_sequence`
 can use more space. Furthermore we don't need a safe version of `type_at` to
 implement fold as we are iterating from the start over the sequence and access
 all elements in the order they are computed. But of course there is room for
