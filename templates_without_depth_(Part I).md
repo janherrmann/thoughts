@@ -165,7 +165,7 @@ following metafunctions and implement type_at_t in terms of them ([full implemen
 * `tail` (trivial)
 * `remove_first_n`
 
-
+```cpp
 
     template<class Sequence, size_t N>
     struct remove_first_n
@@ -181,6 +181,8 @@ following metafunctions and implement type_at_t in terms of them ([full implemen
 
     template<class Sequence, size_t Index>
     using type_at_t = typename head<typename remove_first_n<Sequence, Index>::type>::type;
+    
+```
 
 As we see the structure of the algorithm has been moved to `remove_first_n`.
 Now we access all elements of a sequence (highly simplified):
